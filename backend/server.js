@@ -19,6 +19,7 @@ app.use(cookieParser());
 const allowedOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://192.168.31.251:5173',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -50,9 +51,9 @@ const startServer = async () => {
         // Initialize Database
         await initDB();
 
-        // Start listening
-        app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
+        // Start listening on all interfaces
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`Server running on port ${PORT} (at 0.0.0.0)`);
         });
     } catch (err) {
         console.error('Failed to start server:', err.message);
