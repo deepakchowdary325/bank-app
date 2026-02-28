@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 const { initDB } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const transactionRoutes = require('./routes/transactionRoutes');
 
 dotenv.config();
 
@@ -18,11 +19,9 @@ app.use(cors({
     credentials: true
 }));
 
-// Initialize Database
-initDB();
-
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 // Test Route
 app.get('/api/health', (req, res) => {
@@ -30,6 +29,19 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+    try {
+        // Initialize Database
+        await initDB();
+
+        // Start listening
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to start server:', err.message);
+        process.exit(1);
+    }
+};
+
+startServer();

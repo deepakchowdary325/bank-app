@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/db');
+const { db } = require('../config/db');
 
 // Register User
 const register = async (req, res) => {
@@ -13,7 +13,7 @@ const register = async (req, res) => {
 
     try {
         // Check if user already exists
-        const [existingUser] = await pool.query('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
+        const [existingUser] = await db.pool.query('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
         if (existingUser.length > 0) {
             return res.status(400).json({ message: 'User already exists' });
         }
@@ -23,15 +23,15 @@ const register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Insert user
-        await pool.query(
+        await db.pool.query(
             'INSERT INTO users (username, email, phone, password) VALUES (?, ?, ?, ?)',
             [username, email, phone, hashedPassword]
         );
 
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
-        console.error('Registration error:', error.message);
-        res.status(500).json({ message: 'Server error during registration' });
+        console.error('Registration error detail:', error);
+        res.status(500).json({ message: 'Server error during registration', error: error.message });
     }
 };
 
@@ -45,7 +45,7 @@ const login = async (req, res) => {
 
     try {
         // Find user
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const [users] = await db.pool.query('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -75,11 +75,11 @@ const login = async (req, res) => {
 
         res.json({
             message: 'Login successful',
-            user: { id: user.id, username: user.username, role: user.role }
+            user: { id: user.id, username: user.username, role: user.role, balance: user.balance }
         });
     } catch (error) {
-        console.error('Login error:', error.message);
-        res.status(500).json({ message: 'Server error during login' });
+        console.error('Login error detail:', error);
+        res.status(500).json({ message: 'Server error during login', error: error.message });
     }
 };
 
@@ -92,12 +92,13 @@ const logout = (req, res) => {
 // Get Current User (Me)
 const me = async (req, res) => {
     try {
-        const [users] = await pool.query('SELECT id, username, email, role FROM users WHERE id = ?', [req.user.id]);
+        const [users] = await db.pool.query('SELECT id, username, email, role, balance FROM users WHERE id = ?', [req.user.id]);
         if (users.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
         res.json(users[0]);
     } catch (error) {
+        console.error('Me query error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };

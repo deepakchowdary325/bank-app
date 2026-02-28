@@ -34,12 +34,23 @@ const mockPool = {
     }
 };
 
+let pool;
+
+const db = {
+    get pool() {
+        return pool;
+    },
+    set pool(val) {
+        pool = val;
+    }
+};
+
 if (process.env.USE_MOCK_DB === 'true') {
     console.log('Using MOCK in-memory database.');
-    pool = mockPool;
+    db.pool = mockPool;
 } else {
     console.log('Connecting to host:', process.env.DB_HOST);
-    pool = mysql.createPool({
+    db.pool = mysql.createPool({
         host: process.env.DB_HOST,
         user: process.env.DB_USER,
         password: process.env.DB_PASS,
@@ -52,7 +63,7 @@ if (process.env.USE_MOCK_DB === 'true') {
 const initDB = async () => {
     try {
         if (process.env.USE_MOCK_DB !== 'true') {
-            const connection = await pool.getConnection();
+            const connection = await db.pool.getConnection();
             console.log('Connected to Aiven MySQL database.');
             const createUsersTable = `
                 CREATE TABLE IF NOT EXISTS users (
@@ -61,12 +72,29 @@ const initDB = async () => {
                     email VARCHAR(100) NOT NULL UNIQUE,
                     phone VARCHAR(15),
                     password VARCHAR(255) NOT NULL,
+                    balance DECIMAL(15, 2) DEFAULT 1000.00,
                     role ENUM('USER', 'ADMIN') DEFAULT 'USER',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `;
             await connection.query(createUsersTable);
             console.log('Users table checked/created.');
+
+            const createTransactionsTable = `
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sender_id INT,
+                    receiver_id INT,
+                    amount DECIMAL(15, 2) NOT NULL,
+                    type ENUM('TRANSFER', 'DEPOSIT', 'WITHDRAWAL') DEFAULT 'TRANSFER',
+                    description VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (sender_id) REFERENCES users(id),
+                    FOREIGN KEY (receiver_id) REFERENCES users(id)
+                )
+            `;
+            await connection.query(createTransactionsTable);
+            console.log('Transactions table checked/created.');
             connection.release();
         } else {
             console.log('Mock database initialized.');
@@ -74,8 +102,8 @@ const initDB = async () => {
     } catch (error) {
         console.error('Database initialization error:', error.message);
         console.log('FALLING BACK TO MOCK DB FOR DEMONSTRATION');
-        pool = mockPool;
+        db.pool = mockPool;
     }
 };
 
-module.exports = { pool, initDB };
+module.exports = { db, initDB };
